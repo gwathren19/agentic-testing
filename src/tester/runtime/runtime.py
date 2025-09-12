@@ -20,7 +20,6 @@ class Runtime:
                 tty=True,
                 network=RUNTIME_NETWORK_NAME,
                 mem_limit=RUNTIME_MEM_LIMIT,
-                cpus=RUNTIME_CPUS,
                 remove=True,
                 security_opt=["no-new-privileges"],
                 cap_drop=["ALL"],

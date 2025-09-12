@@ -14,7 +14,11 @@ dependencies = [
     "docker",
     "openai",
     "langchain",
+    "llama-cpp-python",
 ]
+
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [project.scripts]
 tester = "tester.cli:cli"

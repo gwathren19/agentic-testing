@@ -8,5 +8,5 @@ def cli():
 @cli.command()
 @click.argument('target')
 def run(target):
-    agent = Agent(target)
-    agent.run()
+    agent = Agent()
+    agent.run(target)

@@ -3,4 +3,4 @@ RUNTIME_IMAGE_TAG="latest"
 RUNTIME_CONTAINER_NAME="tester_runtime"
 RUNTIME_NETWORK_NAME="lab_net"
 RUNTIME_MEM_LIMIT="1g"
-RUNTIME_CPUS=1
+AGENT_MODEL_PATH="./models/ggml-model-q4_0.bin"

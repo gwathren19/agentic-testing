@@ -1,12 +1,19 @@
 from langchain.agents import initialize_agent
-from langchain_openai import ChatOpenAI
+from langchain.llms import LlamaCpp
+from dotenv import load_dotenv
+import os
 
 from tester.runtime.runtime import Runtime
 import tester.tools.basic_tools as basic_tools
+from tester.utils.logger import logger
 
 class Agent:
     def __init__(self):
-        self.llm = ChatOpenAI(temperature=0, model_name="gpt-4o-mini")
+        load_dotenv()
+        self.llm = LlamaCpp(
+            model_path=AGENT_MODEL_PATH,
+            temperature=0
+        )
         self.runtime = Runtime()
 
     def run(self, target):
@@ -20,8 +27,8 @@ class Agent:
                 verbose=True,
                 max_iterations=5,
             )
-            agent.run(f"Perform a security assessment on {target}.")
+            agent.invoke(f"Perform a security assessment on {target}.")
         except Exception as e:
-            pass
+            logger.error(f"Error running agent: {e}")
         finally:
             self.runtime.stop_container()
