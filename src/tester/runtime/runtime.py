@@ -1,5 +1,6 @@
 import docker
 import time
+import shlex
 from tester.config import *
 from tester.utils.logger import logger
 
@@ -36,9 +37,10 @@ class Runtime:
         if not self.container:
             raise RuntimeError("Container not started")
         try:
-            exec_id = self.client.api.exec_create(self.container.id, f"bash -c '{command}'")
+            command = shlex.quote(command)
+            exec_id = self.client.api.exec_create(self.container.id, f"bash -c {command}")
             output = self.client.api.exec_start(exec_id, detach=False, tty=False, stream=False)
-            return output.decode('utf-8')
+            return output.decode('utf-8', errors='ignore')
         except Exception as e:
             logger.error(f"Error running command in container {self.container_name}: {e}")
 

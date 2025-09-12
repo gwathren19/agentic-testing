@@ -17,6 +17,7 @@ dependencies = [
     "langchain-community",
     "langchain_google_genai",
     "llama-cpp-python",
+    "huggingface-hub",
 ]
 
 [tool.setuptools.packages.find]

@@ -5,12 +5,18 @@ from tester.runtime.runtime import Runtime
 def create_tools(runtime : Runtime):
 
     def http_get(url : str) -> str:
-        command = f"curl -s {url}"
-        return runtime.run_command(command)
+        command = f"curl -sL {url}"
+        output = runtime.run_command(command)
+        if not output.strip():
+            return f"No response from {url}. Host may be unreachable."
+        return output
 
     def port_scan(host : str) -> str:
         command = f"nmap -p- -sV {host}"
-        return runtime.run_command(command)
+        output = runtime.run_command(command)
+        if not output.strip():
+            return f"No response from {host}. Host may be unreachable."
+        return output
 
     def install_package(packages : str) -> str:
         raw = [s.strip().lower() for s in packages.split(",") if s.strip()]
@@ -20,7 +26,7 @@ def create_tools(runtime : Runtime):
         pkgs_quoted = " ".join(shlex.quote(p) for p in raw)
         command = (
             f"export DEBIAN_FRONTEND=noninteractive && "
-            f"apt-get update -y && apt-get install -y --no-install-recommends {pkgs_quoted}"
+            f"sudo apt-get update -y && sudo apt-get install -y --no-install-recommends {pkgs_quoted}"
         )
         try:
             output = runtime.run_command(command)
@@ -35,7 +41,7 @@ def create_tools(runtime : Runtime):
     http_get_tool = Tool(
         name="http_get",
         func=http_get,
-        description="Fetch the contents of a URL using curl.",
+        description="Fetch the contents of a URL using curl with -L option set to follow redirects.",
     )
 
     port_scan_tool = Tool(
@@ -50,9 +56,15 @@ def create_tools(runtime : Runtime):
         description="Install packages in the runtime container using apt-get. Provide a comma-separated list of package names.",
     )
 
+    def run_command_safe(command: str):
+        command = command.rstrip("\n")  # remove only trailing newlines
+        from tester.utils.logger import logger
+        logger.info(f"Running command in container {runtime.container_name}: {repr(command)}")
+        return runtime.run_command(command)
+
     fallback_shell_tool = Tool(
         name="fallback_shell",
-        func=runtime.run_command,
+        func=run_command_safe,
         description="Execute arbitrary shell commands in the runtime container in case other tools are insufficient.",
     )
 
