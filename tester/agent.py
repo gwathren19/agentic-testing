@@ -1,7 +1,7 @@
 from langchain.agents import initialize_agent
 from langchain_openai import ChatOpenAI
 
-from tester.runtime import Runtime
+from tester.runtime.runtime import Runtime
 import tester.tools.basic_tools as basic_tools
 
 class Agent:
