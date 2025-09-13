@@ -5,13 +5,14 @@ from tester.config import *
 from tester.utils.logger import logger
 
 class Runtime:
-    def __init__(self):
+    def __init__(self, session_id : str = "1"):
         self.client = docker.from_env()
         self.container = None
+        self.session_id = session_id
+        self.container_name = f"{RUNTIME_CONTAINER_NAME}{self.session_id}"
         self.cookie_jar = f"/home/tester/cookie_jar.txt"
 
-    def start_container(self, session_id : str = "1"):
-        self.container_name = f"{RUNTIME_CONTAINER_NAME}{session_id}"
+    def start_container(self):
         logger.info(f"Starting container {self.container_name}")
         try:
             self.container = self.client.containers.run(

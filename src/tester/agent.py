@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 import os
 
 from tester.runtime.runtime import Runtime
-import tester.tools.basic_tools as basic_tools
+import tester.tools.basic_tools.basic_tools as basic_tools
 from tester.utils.logger import logger
 from tester.config import *
 
