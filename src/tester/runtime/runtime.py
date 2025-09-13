@@ -8,6 +8,7 @@ class Runtime:
     def __init__(self):
         self.client = docker.from_env()
         self.container = None
+        self.cookie_jar = f"/home/tester/cookie_jar.txt"
 
     def start_container(self, session_id : str = "1"):
         self.container_name = f"{RUNTIME_CONTAINER_NAME}{session_id}"
@@ -22,8 +23,8 @@ class Runtime:
                 network=RUNTIME_NETWORK_NAME,
                 mem_limit=RUNTIME_MEM_LIMIT,
                 remove=True,
-                security_opt=["no-new-privileges"],
                 cap_drop=["ALL"],
+                cap_add=["SETUID", "SETGID", "DAC_OVERRIDE", "CHOWN", "FOWNER", "NET_RAW"],
                 user="tester",
                 working_dir="/home/tester",
             )

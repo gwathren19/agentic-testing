@@ -23,7 +23,7 @@ class Agent:
         elif AGENT_SOURCE == "GOOGLE":
             self.llm = ChatGoogleGenerativeAI(
                 temperature=0,
-                model="gemini-2.0-flash",
+                model="gemini-2.5-flash-lite",
                 google_api_key=os.getenv("GOOGLE_API_KEY"),
                 max_retries=0
             )
@@ -59,7 +59,7 @@ Task: Perform a security assessment on the target: {target}.
                 llm=self.llm,
                 agent="zero-shot-react-description",
                 verbose=True,
-                max_iterations=5,
+                max_iterations=10,
             )
             agent.invoke(prompt_text)
         except Exception as e:
