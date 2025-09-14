@@ -1,6 +1,7 @@
 import shlex
 from typing import Optional, Dict, Any
 from langchain.agents import Tool
+from langchain.tools import StructuredTool
 from pydantic import BaseModel, Field
 from tester.runtime.runtime import Runtime
 
@@ -48,12 +49,12 @@ def build_curl_command(method: str,
 
 
 def create_http_get_tool(runtime: Runtime) -> Tool:
-    def http_get(args: HttpGetRequest) -> str:
-        url = args.url.strip()
-        headers = args.headers
-        cookies = args.cookies
-        use_cookie_jar = args.use_cookie_jar
-
+    def http_get(
+            url,
+            headers = None,
+            cookies = None,
+            use_cookie_jar = False
+    ) -> str:
         if not url:
             return "Error: input must be a valid URL."
 
@@ -66,24 +67,27 @@ def create_http_get_tool(runtime: Runtime) -> Tool:
             return f"No response from {url}. Host may be unreachable."
         return output
 
-    return Tool(
+    return StructuredTool.from_function(
         name="http_get",
         func=http_get,
         description=(
-            "Fetch the contents of a URL using HTTP GET. "
-            "Follows redirects automatically (-L). Maintains session state using cookies. "
-            "Input: the URL as a string. Returns raw HTML or JSON content."
+            "Perform an HTTP GET request to fetch the contents of a webpage or API.\n"
+            "Automatically follows redirects (-L).\n"
+            "Returns the raw HTTP response body (HTML, JSON, or text)."
+            "If the host is unreachable or the response is empty, returns an error message."
         ),
+        args_schema=HttpGetRequest,
     )
 
 
 def create_http_post_tool(runtime: Runtime) -> Tool:
-    def http_post(args: HttpPostRequest) -> str:
-        url = args.url.strip()
-        headers = args.headers
-        cookies = args.cookies
-        data = args.data.strip()
-        use_cookie_jar = args.use_cookie_jar
+    def http_post(
+        url,
+        data,
+        headers = None,
+        cookies = None,
+        use_cookie_jar = False
+    ) -> str:
 
         if not url:
             return "Error: input must be a valid URL."
@@ -99,13 +103,14 @@ def create_http_post_tool(runtime: Runtime) -> Tool:
             return f"No response from {url}. Host may be unreachable."
         return output
 
-    return Tool(
+    return StructuredTool.from_function(
         name="http_post",
         func=http_post,
         description=(
-            "Send data to a URL using HTTP POST. "
-            "Follows redirects automatically (-L) and maintains session cookies. "
-            "Inputs: 'url' string and 'data' string (e.g., 'username=admin&password=password'). "
-            "Use this to submit login forms, APIs, or any POST request with arbitrary fields."
+            "Perform an HTTP POST request to send form data or API requests.\n"
+            "Automatically follows redirects (-L).\n"
+            "Returns the raw HTTP response body (HTML, JSON, or text)."
+            "If the host is unreachable or the response is empty, returns an error message."
         ),
+        args_schema=HttpPostRequest,
     )

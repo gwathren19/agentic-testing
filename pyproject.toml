@@ -13,6 +13,7 @@ dependencies = [
     "click",
     "docker",
     "openai",
+    "langgraph",
     "langchain",
     "langchain-community",
     "langchain_google_genai",
