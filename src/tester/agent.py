@@ -19,9 +19,8 @@ class AgentState(TypedDict):
     messages: Annotated[Sequence[BaseMessage], add_messages]
 
 class Agent:
-    def __init__(self, verbose = True):
+    def __init__(self):
         load_dotenv()
-        self.verbose = verbose
         self.runtime = Runtime()    
 
         if AGENT_SOURCE == "GOOGLE":
@@ -41,20 +40,64 @@ class Agent:
         workflow = StateGraph(AgentState)
 
         def call_model(state: AgentState) -> AgentState:
-            logger.info(f"Messages for LLM: {state['messages']}")
+            logger.info(f"Calling LLM with messages: {state['messages']}")
             response = llm.invoke(state["messages"])
             return {"messages": [response]}
 
+        def human_interaction(state: AgentState) -> AgentState:
+            last_message = state.get('messages', [])[-1] if state.get('messages') else None
+            print("\n--- Human-in-the-Loop ---")
+            if last_message is not None:
+                try:
+                    content_preview = last_message.content
+                except Exception:
+                    content_preview = str(last_message)
+                print(f"Last message:\n{content_preview}\n")
+            else:
+                print("No last message to review.\n")
+
+            while True:
+                print("Type one of the following:")
+                print("  - approve              (type exactly 'approve' to allow the agent to continue)")
+                print("  - modify: <your text>  (provide new human guidance to send to the agent)")
+                print("  - abort                (stop the whole run)\n")
+                response = input("Your action: ").strip()
+
+                if not response:
+                    print("Please type a command (approve / modify: ... / abort).")
+                    continue
+
+                low = response.lower()
+                if low == "approve":
+                    return {"messages": [HumanMessage(content="The previous action is approved. Please continue with the security assessment.")]}
+
+                if low.startswith("modify:"):
+                    _, _, guidance = response.partition(":")
+                    guidance = guidance.strip()
+                    if not guidance:
+                        print("You typed 'modify:' but did not provide text. Try again.")
+                        continue
+                    return {"messages": [HumanMessage(content=guidance)]}
+
+                if low == "abort":
+                    raise RuntimeError("Human aborted the run via 'abort' command.")
+
+                print("Unrecognized command. Use exactly 'approve', 'modify: <text>' or 'abort'.")
+                
+
         workflow.add_node("agent", call_model)
         workflow.add_node("tools", ToolNode(tools))
+        workflow.add_node("human", human_interaction)
 
         workflow.set_entry_point("agent")
         workflow.add_conditional_edges(
             "agent",
             tools_condition,
-            {"tools": "tools", "agent": "agent", "__end__": END},
+            {"tools": "tools", "agent": "human", "__end__": END},
         )
-        workflow.add_edge("tools", "agent")
+        
+        workflow.add_edge("tools", "human")
+        workflow.add_edge("human", "agent")
 
         memory = MemorySaver()
         compiled_graph = workflow.compile(checkpointer=memory)
@@ -85,11 +128,10 @@ You must not be destructive.
         events = graph.stream({"messages": init_messages}, config=config, stream_mode="values")
         try:
             for i, step in enumerate(events):
-                if self.verbose:
-                    print(f"\n[Step {i}]")
-                    print(step["messages"][-1])
+                print(f"\n[Step {i}]")
+                print(step["messages"][-1])
 
-                if i >= 5:
+                if i >= 10:
                     print("Reached max steps.")
                     break
         except Exception as e:
