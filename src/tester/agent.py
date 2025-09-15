@@ -1,4 +1,4 @@
-from typing import TypedDict, Annotated, List, Sequence
+from typing import TypedDict, Annotated, Sequence
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.prebuilt import ToolNode, tools_condition
@@ -8,7 +8,6 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
 from langchain_community.llms import LlamaCpp
 from dotenv import load_dotenv
-import os
 
 from tester.runtime.runtime import Runtime
 import tester.tools.basic_tools.basic_tools as basic_tools
@@ -37,67 +36,56 @@ class Agent:
         
         llm = self.llm.bind_tools(tools)
 
-        workflow = StateGraph(AgentState)
-
         def call_model(state: AgentState) -> AgentState:
             logger.info(f"Calling LLM with messages: {state['messages']}")
             response = llm.invoke(state["messages"])
             return {"messages": [response]}
 
-        def human_interaction(state: AgentState) -> AgentState:
-            last_message = state.get('messages', [])[-1] if state.get('messages') else None
-            print("\n--- Human-in-the-Loop ---")
-            if last_message is not None:
-                try:
-                    content_preview = last_message.content
-                except Exception:
-                    content_preview = str(last_message)
-                print(f"Last message:\n{content_preview}\n")
+        def human_tool_review(state: AgentState) -> AgentState:
+            tool_calls = [m for m in state["messages"] if m.type == "ai"][-1].tool_calls
+            if not tool_calls:
+                return state
+
+            tool_call = tool_calls[0]
+            print(f"\nProposed tool call: {tool_call}\n")
+
+            action = input("Approve this call? [y/n/edit]: ").strip().lower()
+
+            if action == "y":
+                print("Approved")
+                return state
+
+            elif action == "edit":
+                print("Current args:", tool_call["args"])
+                for k, v in tool_call["args"].items():
+                    new_val = input(f"Enter new value for '{k}' (or press Enter to keep '{v}'): ")
+                    if new_val:
+                        tool_call["args"][k] = new_val
+                state["messages"][-1].tool_calls[0] = tool_call
+                print("Edited and approved")
+                return state
+
             else:
-                print("No last message to review.\n")
+                print("Rejected - skipping tool execution")
+                state["messages"][-1].tool_calls = []
+                return state
 
-            while True:
-                print("Type one of the following:")
-                print("  - approve              (type exactly 'approve' to allow the agent to continue)")
-                print("  - modify: <your text>  (provide new human guidance to send to the agent)")
-                print("  - abort                (stop the whole run)\n")
-                response = input("Your action: ").strip()
 
-                if not response:
-                    print("Please type a command (approve / modify: ... / abort).")
-                    continue
-
-                low = response.lower()
-                if low == "approve":
-                    return {"messages": [HumanMessage(content="The previous action is approved. Please continue with the security assessment.")]}
-
-                if low.startswith("modify:"):
-                    _, _, guidance = response.partition(":")
-                    guidance = guidance.strip()
-                    if not guidance:
-                        print("You typed 'modify:' but did not provide text. Try again.")
-                        continue
-                    return {"messages": [HumanMessage(content=guidance)]}
-
-                if low == "abort":
-                    raise RuntimeError("Human aborted the run via 'abort' command.")
-
-                print("Unrecognized command. Use exactly 'approve', 'modify: <text>' or 'abort'.")
-                
-
+        workflow = StateGraph(AgentState)
+        
         workflow.add_node("agent", call_model)
+        workflow.add_node("human_tool_review", human_tool_review)
         workflow.add_node("tools", ToolNode(tools))
-        workflow.add_node("human", human_interaction)
-
+        
         workflow.set_entry_point("agent")
+
         workflow.add_conditional_edges(
             "agent",
             tools_condition,
-            {"tools": "tools", "agent": "human", "__end__": END},
+            {"tools": "human_tool_review", "agent": "agent", "__end__": END},
         )
-        
-        workflow.add_edge("tools", "human")
-        workflow.add_edge("human", "agent")
+        workflow.add_edge("human_tool_review", "tools")
+        workflow.add_edge("tools", "agent")
 
         memory = MemorySaver()
         compiled_graph = workflow.compile(checkpointer=memory)
@@ -131,7 +119,7 @@ You must not be destructive.
                 print(f"\n[Step {i}]")
                 print(step["messages"][-1])
 
-                if i >= 10:
+                if i >= 5:
                     print("Reached max steps.")
                     break
         except Exception as e:
