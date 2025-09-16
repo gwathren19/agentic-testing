@@ -1,28 +1,28 @@
 import docker
 import time
 import shlex
-from tester.config import *
 from tester.utils.logger import logger
+from tester.utils.config import config
 
 class Runtime:
     def __init__(self, session_id : str = "1"):
         self.client = docker.from_env()
         self.container = None
         self.session_id = session_id
-        self.container_name = f"{RUNTIME_CONTAINER_NAME}{self.session_id}"
+        self.container_name = f"{config.runtime.container_name}{self.session_id}"
         self.cookie_jar = f"/home/tester/cookie_jar.txt"
 
     def start_container(self):
         logger.info(f"Starting container {self.container_name}")
         try:
             self.container = self.client.containers.run(
-                f"{RUNTIME_IMAGE_NAME}:{RUNTIME_IMAGE_TAG}",
+                f"{config.runtime.image_name}:{config.runtime.image_tag}",
                 name=self.container_name,
                 detach=True,
                 stdin_open=True,
                 tty=True,
-                network=RUNTIME_NETWORK_NAME,
-                mem_limit=RUNTIME_MEM_LIMIT,
+                network=config.runtime.network_name,
+                mem_limit=config.runtime.mem_limit,
                 remove=True,
                 cap_drop=["ALL"],
                 cap_add=["SETUID", "SETGID", "DAC_OVERRIDE", "CHOWN", "FOWNER", "NET_RAW"],

@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 from tester.runtime.runtime import Runtime
 import tester.tools.basic_tools.basic_tools as basic_tools
 from tester.utils.logger import logger
-from tester.config import *
+from tester.utils.config import config
 
 class AgentState(TypedDict):
     messages: Annotated[Sequence[BaseMessage], add_messages]
@@ -22,24 +22,38 @@ class Agent:
         load_dotenv()
         self.runtime = Runtime()    
 
-        if AGENT_SOURCE == "GOOGLE":
-            self.llm = ChatGoogleGenerativeAI(model=AGENT_GOOGLE_MODEL, temperature=0)
-        elif AGENT_SOURCE == "OPENAI":
-            self.llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
-        elif AGENT_SOURCE == "LOCAL":
-            self.llm = LlamaCpp(model_path=AGENT_MODEL_PATH, n_ctx=2048, n_threads=8, temperature=0.2)
+        if config.agent.source == "GOOGLE":
+            self.llm = ChatGoogleGenerativeAI(model=config.agent.google_model, temperature=0)
+        elif config.agent.source == "OPENAI":
+            self.llm = ChatOpenAI(model=config.agent.openai_model, temperature=0)
+        elif config.agent.source == "LOCAL":
+            self.llm = LlamaCpp(model_path=config.agent.model_path, n_ctx=2048, n_threads=8, temperature=0.2)
         else:
-            raise ValueError(f"Unsupported AGENT_SOURCE: {AGENT_SOURCE}")    
+            raise ValueError(f"Unsupported AGENT_SOURCE: {config.agent.source}")
 
     def build_graph(self) -> StateGraph:
         tools = basic_tools.create_tools(self.runtime)
         
         llm = self.llm.bind_tools(tools)
 
+        def routing_condtion(state: AgentState) -> str:
+            last = state["messages"][-1]
+            
+            if hasattr(last, "tool_calls") and last.tool_calls:
+                return "tools"
+            
+            if last.type == "ai":
+                content = last.content.strip().lower()
+                if "assessment complete" in content or "no more actions" in content:
+                    return "__end__"
+                else:
+                    return "agent"
+            return "agent"
+
         def call_model(state: AgentState) -> AgentState:
             logger.info(f"Calling LLM with messages: {state['messages']}")
             response = llm.invoke(state["messages"])
-            return {"messages": [response]}
+            return {"messages": state["messages"] + [response]}
 
         def human_tool_review(state: AgentState) -> AgentState:
             tool_calls = [m for m in state["messages"] if m.type == "ai"][-1].tool_calls
@@ -72,7 +86,7 @@ class Agent:
 
 
         workflow = StateGraph(AgentState)
-        
+
         workflow.add_node("agent", call_model)
         workflow.add_node("human_tool_review", human_tool_review)
         workflow.add_node("tools", ToolNode(tools))
@@ -81,7 +95,7 @@ class Agent:
 
         workflow.add_conditional_edges(
             "agent",
-            tools_condition,
+            routing_condtion,
             {"tools": "human_tool_review", "agent": "agent", "__end__": END},
         )
         workflow.add_edge("human_tool_review", "tools")
@@ -119,7 +133,7 @@ You must not be destructive.
                 print(f"\n[Step {i}]")
                 print(step["messages"][-1])
 
-                if i >= 5:
+                if i >= 10:
                     print("Reached max steps.")
                     break
         except Exception as e:

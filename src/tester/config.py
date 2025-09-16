@@ -1,8 +1,0 @@
-RUNTIME_IMAGE_NAME="sandbox"
-RUNTIME_IMAGE_TAG="latest"
-RUNTIME_CONTAINER_NAME="tester_runtime"
-RUNTIME_NETWORK_NAME="lab_net"
-RUNTIME_MEM_LIMIT="1g"
-AGENT_SOURCE="GOOGLE"
-AGENT_MODEL_PATH="./models/ggml-model-q4_0.bin"
-AGENT_GOOGLE_MODEL="gemini-2.5-flash-lite"
