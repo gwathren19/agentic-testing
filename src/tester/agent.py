@@ -110,7 +110,7 @@ class Agent:
 
         return compiled_graph
 
-    def run(self, target):
+    def run(self, target, max_steps):
         self.runtime.start_container()
 
         graph = self.build_graph()
@@ -133,7 +133,7 @@ You must not be destructive.
                 print(f"\n[Step {i}]")
                 print(step["messages"][-1])
 
-                if i >= 10:
+                if i >= max_steps:
                     print("Reached max steps.")
                     break
         except Exception as e:

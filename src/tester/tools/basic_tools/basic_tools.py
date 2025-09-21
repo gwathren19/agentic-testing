@@ -33,6 +33,11 @@ def create_tools(runtime: Runtime):
         except Exception as e:
             return f"Error installing packages: {e}"
 
+    def run_python_script(script: str) -> str:
+        script = script.rstrip("\n")
+        command = f"python3 -c {shlex.quote(script)}"
+        return runtime.run_command(command)
+
     def run_command_wrapper(command: str):
         command = command.rstrip("\n")
         return runtime.run_command(command)
@@ -47,6 +52,12 @@ def create_tools(runtime: Runtime):
         description="Scan a host for open ports using nmap service version scan.",
     )
 
+    run_python_script_tool = Tool(
+        name="run_python_script",
+        func=run_python_script,
+        description="Run a Python script in the runtime container.",
+    )
+
     install_tool = Tool(
         name="install_package",
         func=install_package,
@@ -59,4 +70,4 @@ def create_tools(runtime: Runtime):
         description="Execute arbitrary shell commands in the runtime container in case other tools are insufficient.",
     )
 
-    return [http_get_tool, http_post_tool, port_scan_tool, install_tool, fallback_shell_tool]
+    return [http_get_tool, http_post_tool, port_scan_tool, run_python_script_tool, install_tool, fallback_shell_tool]
