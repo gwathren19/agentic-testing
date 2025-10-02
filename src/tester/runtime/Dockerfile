@@ -4,7 +4,8 @@ RUN apt-get update && apt-get install -y \
     sudo \
     python3 \
     python3-pip \
-    curl wget ping nmap sqlmap \
+    python3-venv \
+    curl wget nmap sqlmap \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN useradd -ms /bin/bash tester

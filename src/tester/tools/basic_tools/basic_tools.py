@@ -2,18 +2,33 @@ import shlex
 from langchain.agents import Tool
 from tester.runtime.runtime import Runtime
 
-from tester.tools.basic_tools.http_requests import create_http_get_tool, create_http_post_tool
-
 def create_tools(runtime: Runtime):
 
-    def port_scan(host : str) -> str:
-        command = f"nmap -p- -sV {host}"
-        output = runtime.run_command(command)
-        if not output.strip():
-            return f"No response from {host}. Host may be unreachable."
-        return output
+    def run_python_script(script: str) -> str:
+        runtime.activate_venv()
+        script = script.rstrip("\n")
+        command = f"{runtime.venv_path}/bin/python3 -c {shlex.quote(script)}"
+        return runtime.run_command(command)
 
-    def install_package(packages : str) -> str:
+    def pip_install(packages : str) -> str:
+        runtime.activate_venv()
+        raw = [s.strip() for s in packages.split(",") if s.strip()]
+        if not raw:
+            return "Empty install request."
+
+        pkgs_quoted = " ".join(shlex.quote(p) for p in raw)
+        command = f"{runtime.venv_path}/bin/pip install --no-cache-dir {pkgs_quoted}"
+        try:
+            output = runtime.run_command(command)
+            checks = []
+            for pkg in raw:
+                check = runtime.run_command(f"{runtime.venv_path}/bin/python3 -c {shlex.quote(f'import {pkg}; print({pkg}.__version__)')} || echo NOT_FOUND")
+                checks.append(f"{pkg}: {check.strip()}")
+            return f"Install output:\n{output}\n\nVerification:\n" + "\n".join(checks)
+        except Exception as e:
+            return f"Error installing packages: {e}"
+
+    def apt_install(packages : str) -> str:
         raw = [s.strip().lower() for s in packages.split(",") if s.strip()]
         if not raw:
             return "Empty install request."
@@ -33,24 +48,9 @@ def create_tools(runtime: Runtime):
         except Exception as e:
             return f"Error installing packages: {e}"
 
-    def run_python_script(script: str) -> str:
-        script = script.rstrip("\n")
-        command = f"python3 -c {shlex.quote(script)}"
-        return runtime.run_command(command)
-
     def run_command_wrapper(command: str):
         command = command.rstrip("\n")
         return runtime.run_command(command)
-
-
-    http_get_tool = create_http_get_tool(runtime)
-    http_post_tool = create_http_post_tool(runtime)
-
-    port_scan_tool = Tool(
-        name="port_scan",
-        func=port_scan,
-        description="Scan a host for open ports using nmap service version scan.",
-    )
 
     run_python_script_tool = Tool(
         name="run_python_script",
@@ -58,16 +58,22 @@ def create_tools(runtime: Runtime):
         description="Run a Python script in the runtime container.",
     )
 
-    install_tool = Tool(
-        name="install_package",
-        func=install_package,
+    pip_install_tool = Tool(
+        name="pip_install",
+        func=pip_install,
+        description="Install Python packages in the runtime container using pip. Provide a comma-separated list of package names.",
+    )
+
+    apt_install_tool = Tool(
+        name="apt_install",
+        func=apt_install,
         description="Install packages in the runtime container using apt-get. Provide a comma-separated list of package names.",
     )
 
-    fallback_shell_tool = Tool(
-        name="fallback_shell",
+    run_shell_command_tool = Tool(
+        name="run_shell_command",
         func=run_command_wrapper,
         description="Execute arbitrary shell commands in the runtime container in case other tools are insufficient.",
     )
 
-    return [http_get_tool, http_post_tool, port_scan_tool, run_python_script_tool, install_tool, fallback_shell_tool]
+    return [run_python_script_tool, pip_install_tool, apt_install_tool, run_shell_command_tool]

@@ -10,6 +10,8 @@ class Runtime:
         self.container = None
         self.session_id = session_id
         self.container_name = f"{config.runtime.container_name}{self.session_id}"
+        self.venv_path = "/home/tester/.venv"
+        self.venv_activated = False
         self.cookie_jar = f"/home/tester/cookie_jar.txt"
 
     def start_container(self):
@@ -33,6 +35,23 @@ class Runtime:
             logger.info(f"Container {self.container_name} started")
         except docker.errors.APIError as e:
             logger.error(f"Error starting container {self.container_name}: {e}")
+            raise
+
+    def activate_venv(self):
+        if self.venv_activated:
+            return
+
+        try:
+            logger.info(f"Creating virtual environment {self.venv_path} in container {self.container_name}")
+            self.run_command(f"python3 -m venv {self.venv_path}")
+            logger.info("Virtual environment created.")
+            logger.info("Activating virtual environment.")
+            self.run_command(f"source {self.venv_path}/bin/activate")
+            logger.info("Virtual environment activated.")
+            self.venv_activated = True
+        except Exception as e:
+            logger.error(f"Error activating virtual environment: {e}")
+            raise
 
     def run_command(self, command):
         logger.info(f"Running command in container {self.container_name}: {command}")
@@ -42,9 +61,11 @@ class Runtime:
             command = shlex.quote(command)
             exec_id = self.client.api.exec_create(self.container.id, f"bash -c {command}")
             output = self.client.api.exec_start(exec_id, detach=False, tty=False, stream=False)
+            logger.info(f"Command output: {output.decode('utf-8', errors='ignore')}")
             return output.decode('utf-8', errors='ignore')
         except Exception as e:
             logger.error(f"Error running command in container {self.container_name}: {e}")
+            raise
 
     def stop_container(self):
         logger.info(f"Stopping container {self.container_name}")
@@ -56,3 +77,4 @@ class Runtime:
             logger.info(f"Container {self.container_name} stopped")
         except docker.errors.APIError as e:
             logger.error(f"Error stopping container {self.container_name}: {e}")
+            raise
